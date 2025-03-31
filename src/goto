@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Call the Rust program and process its output line by line
+env /etc/development_initializer/development_initializer "$@" | while IFS= read -r line; do
+    if [[ $line == EXEC:* ]]; then
+        # Strip the 'EXEC:' prefix
+        command="${line#EXEC:}"
+
+        # Check if the command is a `cd` command
+        if [[ $command == cd\ * ]]; then
+            # Extract the directory from the `cd` command
+            dir="${command#cd }"
+
+            # Execute the `cd` command in the parent shell
+            echo "Changing directory to: $dir"
+            cd "$dir" || echo "Failed to change directory to: $dir"
+        else
+            # Execute other commands normally
+            eval "$command"
+        fi
+    else
+        # Print non-command output (e.g., error messages)
+        echo "$line"
+    fi
+done
