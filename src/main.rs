@@ -7,7 +7,8 @@ pub use branch::{
     Branch,
     DefaultCommand,
     ListCommand,
-    EditCommand
+    EditCommand,
+    ViewCommand,
     
 };
 pub use cli::{
@@ -15,13 +16,13 @@ pub use cli::{
     Commands,
     AddCommand,
     RemoveCommand,
-    ViewCommand,
     SetCommand
 };
 
 use clap::Parser;
+use anyhow::Result;
 
-fn main() -> Result<(), String> {
+fn main() -> Result<()> {
     // Parse the CLI arguments
     let cli = Cli::parse();
 
@@ -30,7 +31,7 @@ fn main() -> Result<(), String> {
         Commands::Default { alias } => Box::new(DefaultCommand { alias }),
         Commands::Add(add_command) => Box::new(add_command),
         Commands::Remove(remove_command) => Box::new(remove_command),
-        Commands::View ( view ) => Box::new(view),
+        Commands::View { alias} => Box::new(ViewCommand { alias }),
         Commands::List  => Box::new(ListCommand {}),
         Commands::Set(set_command) => Box::new(set_command),
         Commands::Edit { alias } => Box::new(EditCommand { alias }),

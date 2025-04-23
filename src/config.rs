@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use anyhow::{anyhow, Result};
 
 pub const PROJECT_FORMAT: &str = "
 [programs]
@@ -34,10 +35,10 @@ pub struct ProjectConfig {
 pub struct Editor {}
 
 impl Editor {
-    pub fn input_editor(format: &str) -> Result<String, String> {
+    pub fn input_editor(format: &str) -> Result<String> {
         let input = match edit::edit(format) {
             Ok(i) => i,
-            Err(e) => return Err(e.to_string())
+            Err(e) => return Err(anyhow!(e))
         };
 
         Ok(input)

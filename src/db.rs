@@ -95,13 +95,13 @@ pub struct Project {
 
 impl Project {
 
-    pub fn get(names: &[String]) -> Result<Self, String> {
+    pub fn get(names: &[String]) -> Result<Self> {
         if names.is_empty() {
-            return Err("At least one alias must be provided.".to_string());
+            return Err(anyhow!("At least one alias must be provided."));
         }
 
         // Connect to the database
-        let conn = DB::connect().map_err(|_| "Failed to connect to the database.".to_string())?;
+        let conn = DB::connect().context("Unable to get project.")?;
 
         // Create placeholders for the query
         let placeholders: Vec<_> = names.iter().map(|_| "?").collect();
@@ -123,7 +123,7 @@ impl Project {
 
         let mut stmt = conn
             .prepare(&query)
-            .map_err(|e| format!("Failed to prepare query: {}", e))?;
+            .context("Failed to prepare get project statement.")?;
 
         let names_len = &names.len();
         
@@ -141,17 +141,18 @@ impl Project {
                 name: row.get(1)?,
                 toml: row.get(2)?,
             })
-        }).map_err(|e| format!("Failed to fetch project: {}", e))?;
+        })
+        .context("Failed to map query to project.")?;
 
         Ok(project)
     }
 
-    pub fn get_all() -> Result<Vec<Project>, String> {
-        let conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn get_all() -> Result<Vec<Project>> {
+        let conn = DB::connect()?;
 
         let mut stmt = conn
             .prepare("SELECT * FROM projects ")
-            .map_err(|e| format!("Failed to prepare query: {}", e))?;
+            .context("Failed to prepare project get_all query.")?;
 
         let result: Vec<Project> = stmt
             .query_map([], |row| {
@@ -164,13 +165,13 @@ impl Project {
                 )
             }).unwrap()
             .collect::<Result<Vec<Project>, _>>() 
-            .map_err(|e| format!("Failed to execute query: {}", e))?;
+            .context("Failed to execute project get all branch.")?;
 
         Ok(result)
     }
 
-    pub fn add(name: String, toml: String) -> Result<i32, String> {
-        let conn = DB::connect().map_err(|_| "Failed to connect to the database.".to_string())?;
+    pub fn add(name: String, toml: String) -> Result<i32> {
+        let conn = DB::connect()?;
 
         let mut stmt = conn
             .prepare(&format!(
@@ -178,32 +179,28 @@ impl Project {
                 INSERT INTO projects(name, toml)
                 VALUES (?, ?)"
             ))
-            .map_err(|e| format!("Failed to prepare query: {}", e))?;
+            .context("Failed to prepare project add query.")?;
 
         stmt.execute(
             [name, toml]
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
 
         Ok(conn.last_insert_rowid().try_into().unwrap())
     }
 
-    pub fn remove(id: i32) -> Result<(), String> {
-        let mut conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn remove(id: i32) -> Result<()> {
+        let mut conn = DB::connect()?;
 
-        let tx = conn.transaction().map_err(|e| e.to_string())?;
-
-        tx
-            .execute("DELETE FROM project WHERE id = ?", [id])
-            .map_err(|e| e.to_string())?;
+        let tx = conn.transaction()?;
 
         tx
-            .commit()
-            .map_err(|e| e.to_string())
+            .execute("DELETE FROM project WHERE id = ?", [id])?;
+
+        Ok(tx.commit()?)
     }
 
-    pub fn get_id(name: String) -> Result<i32, String> {
-        let conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn get_id(name: String) -> Result<i32> {
+        let conn = DB::connect()?;
 
         let id: i32 = conn.query_row(
         "SELECT p.id 
@@ -212,8 +209,7 @@ impl Project {
             OR ? in (SELECT a.alias FROM alias aWHERE p.id = a.id)", 
             [&name, &name], 
             |row| row.get(0)
-            )
-            .map_err(|e| e.to_string())?;
+            )?;
 
         Ok(id)
     }
@@ -225,8 +221,8 @@ pub struct Alias {
 }
 
 impl Alias {
-    pub fn check(alias: String) -> Result<bool, String> {
-        let conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn check(alias: String) -> Result<bool> {
+        let conn = DB::connect()?;
 
         let result: bool = conn.query_row(
         "SELECT EXISTS (
@@ -236,35 +232,35 @@ impl Alias {
                 )", 
             [alias], 
             |row| row.get(0))
-        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+        .context("Failed to prepare alias check query.")?;
 
         Ok(result)
     }
 
-    pub fn get(id: i32) -> Result<String, String> {
-        let conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn get(id: i32) -> Result<String> {
+        let conn = DB::connect()?;
 
         let mut stmt = conn
             .prepare("SELECT alias FROM alias WHERE id = ?")
-            .map_err(|e| format!("Failed to prepare query: {}", e))?;
+            .context("Failed to prepare alias get query.")?;
 
         let result: String = stmt
             .query_map([id], |row| {
                 row.get(0) 
             }).unwrap()
             .collect::<Result<Vec<String>, _>>() 
-            .map_err(|e| format!("Failed to execute query: {}", e))?
+            .context("Failed to execute alias get query")?
             .join(", ");
 
         Ok(result)
     }
 
-    pub fn get_all() -> Result<Vec<Alias>, String> {
-        let conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn get_all() -> Result<Vec<Alias>> {
+        let conn = DB::connect()?;
 
         let mut stmt = conn
             .prepare("SELECT * FROM alias ")
-            .map_err(|e| format!("Failed to prepare query: {}", e))?;
+            .context("Failed to prepare alias get all query.")?;
 
         let result: Vec<Alias> = stmt
             .query_map([], |row| {
@@ -276,65 +272,59 @@ impl Alias {
                 )
             }).unwrap()
             .collect::<Result<Vec<Alias>, _>>() 
-            .map_err(|e| format!("Failed to execute query: {}", e))?;
+            .context("Failed to execute alias get all query.")?;
 
         Ok(result)
     }
 
-    pub fn add_all(id: i32, aliases: Vec<String>) -> Result<(), String> {
-        let mut conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn add_all(id: i32, aliases: Vec<String>) -> Result<()> {
+        let mut conn = DB::connect()?;
 
-        let tx = conn.transaction().map_err(|e| e.to_string())?;
+        let tx = conn.transaction()?;
 
         for alias in aliases {
             tx.execute(
             "INSERT INTO alias (id, alias) 
                 VALUES(?, ?) ", 
                 params![id, alias]
-            )
-            .map_err(|e| e.to_string())?;
+            )?;
         }
 
         tx
-        .commit()
-        .map_err(|e| e.to_string())?;
+        .commit()?;
 
         Ok(())
     }
 
-    pub fn add(id: i32, alias: String) -> Result<(), String> {
-        let mut conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn add(id: i32, alias: String) -> Result<()> {
+        let mut conn = DB::connect()?;
 
-        let tx = conn.transaction().map_err(|e| e.to_string())?;
+        let tx = conn.transaction()?;
 
         tx.execute(
             "INSERT INTO alias (id, alias) 
                 VALUES(?, ?) ", 
                 params![id, alias]
-            )
-            .map_err(|e| e.to_string())?;
+            )?;
 
         tx
-        .commit()
-        .map_err(|e| e.to_string())?;
+        .commit()?;
 
         Ok(())
     }
 
-    pub fn remove(alias: String) -> Result<(), String>{
-        let mut conn = DB::connect().map_err(|e| e.to_string())?;
+    pub fn remove(alias: String) -> Result<()>{
+        let mut conn = DB::connect()?;
 
-        let tx = conn.transaction().map_err(|e| e.to_string())?;
+        let tx = conn.transaction()?;
 
         tx.execute(
             "REMOVE FROM alias WHERE alias = ?", 
                 params![alias]
-            )
-            .map_err(|e| e.to_string())?;
+            )?;
 
         tx
-        .commit()
-        .map_err(|e| e.to_string())?;
+        .commit()?;
 
         Ok(())
 

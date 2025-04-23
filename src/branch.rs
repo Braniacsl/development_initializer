@@ -4,13 +4,13 @@ use std::process::Command;
 use anyhow::{anyhow, Result};
 use dialoguer::{Confirm, Input};
 
-use crate::cli::{AddCommand, SetCommand, ViewCommand};
+use crate::cli::{AddCommand, SetCommand};
 use crate::db::{Project, Alias};
 use crate::config::{Editor, PROJECT_FORMAT};
 use crate::RemoveCommand;
 
 pub trait Branch {
-    fn execute(&self) -> Result<(), String>;
+    fn execute(&self) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -19,18 +19,22 @@ pub struct DefaultCommand {
 }
 
 impl Branch for DefaultCommand {
-    fn execute(&self) -> Result<(), String> {
-        let alias = match &self.alias {
-            Some(alias) => alias,
-            None => return Err("No alias input.".to_string()),
-        };
+    fn execute(&self) -> Result<()> {
+        unimplemented!()
+        // // Ensure alias is provided
+        // let alias = self.alias.as_ref().context("No alias input.")?;
 
-        let project = Project::get(&[alias.to_string()])?;
+        // // Fetch the project based on the alias
+        // let project: Project = Project::get(&[alias.to_string()]).context("Failed to fetch project.")?;
 
-        match toml::from_str(&project.toml) {
-            Ok(config) => config,
-            Err(_) => return Err("Failed to parse toml.".to_string())
-        }
+        // // Deserialize the TOML configuration
+        // let config: Config = toml::from_str(&project.toml)
+        //     .context("Failed to deserialize TOML configuration.")?;
+
+        // // Use the deserialized configuration (if needed)
+        // println!("Deserialized configuration: {:?}", config);
+
+        // Ok(())
     }
 }
 
@@ -46,7 +50,7 @@ impl AddCommand {
             proj_name}
     }
 
-    fn add_proj(name: String) -> Result<(), String> {
+    fn add_proj(name: String) -> Result<()> {
         println!("Adding project {}", name);
 
         let toml = Editor::input_editor(PROJECT_FORMAT)?;
@@ -56,15 +60,13 @@ impl AddCommand {
         let aliases= if Confirm::new()
             .with_prompt("Would you like to add aliases?")
             .default(false)
-            .interact()
-            .map_err(|e| e.to_string())?
+            .interact()?
             {
                 //Input aliases
                 let aliases: String= Input::<String>::new()
                     .with_prompt("Enter aliases separated by commas e.g. <alias1>, <alias2>, <alias3>, ...")
                     .allow_empty(false)
-                    .interact()
-                    .map_err(|e| e.to_string())?;
+                    .interact()?;
 
                 //Collect aliases
                 let aliases: Vec<String> = aliases
@@ -97,7 +99,7 @@ impl AddCommand {
                     aliases
                 }
                 else {
-                    return Err("Duplicate alias or otherwise invalid.".to_string());
+                    return Err(anyhow!("Duplicate alias or otherwise invalid."));
                 }
             }
             else {
@@ -116,13 +118,12 @@ impl AddCommand {
         Ok(())
     }
 
-    fn add_alias(alias: String) -> Result<(), String> {
+    fn add_alias(alias: String) -> Result<()> {
         println!("Adding alias {}", alias);
 
         let proj_name = Input::new()
             .with_prompt("Enter the name or an alias of a project: ")
-            .interact()
-            .map_err(|e| e.to_string())?;
+            .interact()?;
 
         let proj_id = Project::get_id(proj_name)?;
 
@@ -131,7 +132,7 @@ impl AddCommand {
 }
 
 impl Branch for AddCommand {    
-    fn execute(&self) -> Result<(), String> {
+    fn execute(&self) -> Result<()> {
         if let Some(project) = &self.project {
             // Explicit project name provided via --project
             Self::add_proj(project.to_string())
@@ -144,7 +145,7 @@ impl Branch for AddCommand {
             Self::add_alias(alias.to_string())
         } else {
             // No valid input provided
-            return Err("No project name or alias provided.".to_string());
+            return Err(anyhow!("No project name or alias provided."));
         }
     }
 }
@@ -162,11 +163,10 @@ impl RemoveCommand {
         }
     }
 
-    fn remove_proj(alias: String) -> Result<(), String>{
+    fn remove_proj(alias: String) -> Result<()>{
         let confirm = Confirm::new()
             .with_prompt(format!("Are you sure you want to delete project {}?", &alias))
-            .interact()
-            .map_err(|e| e.to_string())?;
+            .interact()?;
 
         if !confirm { return Ok(()) }
 
@@ -179,11 +179,10 @@ impl RemoveCommand {
         Ok(())
     }
 
-    fn remove_alias(alias: String) -> Result<(), String> {
+    fn remove_alias(alias: String) -> Result<()> {
         let confirm = Confirm::new()
             .with_prompt(format!("Are you sure you want to delete alias {}?", &alias))
-            .interact()
-            .map_err(|e| e.to_string())?;
+            .interact()?;
 
         if !confirm { return Ok(()) }
 
@@ -196,7 +195,7 @@ impl RemoveCommand {
 }
 
 impl Branch for RemoveCommand {
-    fn execute(&self) -> Result<(), String> {
+    fn execute(&self) -> Result<()> {
         if let Some(project) = &self.project {
             // Explicit project name provided via --project
             Self::remove_proj(project.to_string())
@@ -209,9 +208,14 @@ impl Branch for RemoveCommand {
             Self::remove_alias(alias.to_string())
         } else {
             // No valid input provided
-            return Err("No project name or alias provided.".to_string());
+            return Err(anyhow!("No project name or alias provided."));
         }
     }
+}
+
+#[derive(Debug)]
+pub struct ViewCommand {
+    pub alias: String,
 }
 
 impl ViewCommand {
@@ -221,7 +225,7 @@ impl ViewCommand {
 }
 
 impl Branch for ViewCommand {
-    fn execute(&self) -> Result<(), String> {
+    fn execute(&self) -> Result<()> {
         println!("Viewing details of {}", &self.alias);
 
         let project = Project::get(&[self.alias.to_string()])?;
@@ -237,7 +241,7 @@ impl Branch for ViewCommand {
 pub struct ListCommand {}
 
 impl Branch for ListCommand {
-    fn execute(&self) -> Result<(), String> {
+    fn execute(&self) -> Result<()> {
         println!("Viewing all projects:\n");
 
         let projects = Project::get_all()?;
@@ -266,28 +270,29 @@ impl Branch for ListCommand {
 }
 
 impl SetCommand {
-    fn find_editor_path(editor_name: &str) -> Result<String, String> {
+    fn find_editor_path(editor_name: &str) -> Result<String> {
         let output = Command::new("which")
             .arg(editor_name)
-            .output()
-            .map_err(|_| format!("Failed to execute 'which' command for editor: {}", editor_name))?;
+            .output()?;
 
         if output.status.success() {
             // Extract and trim the path from the command output
-            let path = String::from_utf8(output.stdout)
-                .map_err(|_| "Invalid UTF-8 output from 'which' command".to_string())?
+            let path = String::from_utf8(output.stdout)?
                 .trim()
                 .to_string();
             Ok(path)
         } else {
-            Err(format!("Editor '{}' not found", editor_name))
+            Err(anyhow!("Editor '{}' not found", editor_name))
         }
     }
 }
 
 impl Branch for SetCommand {
-    fn execute(&self) -> Result<(), String> {
-        let editor_name = self.option.as_ref().ok_or("No editor specified")?;
+    fn execute(&self) -> Result<()> {
+        let editor_name = 
+            self.option
+            .as_ref()
+            .ok_or(anyhow!("No editor specified"))?;
 
         let editor_path = Self::find_editor_path(editor_name)?;
 
@@ -310,9 +315,7 @@ pub struct EditCommand {
 }
 
 impl Branch for EditCommand {
-    fn execute(&self) -> Result<(), String> {
-
-
-        Ok(())
+    fn execute(&self) -> Result<()> {
+        unimplemented!();
     }
 }

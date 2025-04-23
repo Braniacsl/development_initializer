@@ -24,7 +24,9 @@ pub enum Commands {
     Remove(RemoveCommand),
 
     /// View details of a project or its aliases.
-    View (ViewCommand),
+    View {
+        alias: String,
+    },
 
     /// List all projects and their aliases.
     List,
@@ -74,11 +76,4 @@ pub struct RemoveCommand {
 #[derive(Parser, Debug)]
 pub struct SetCommand {
     pub option: Option<String>
-}
-
-#[derive(Parser, Debug)]
-pub struct ViewCommand {
-    /// Explicitly specify the project name to remove.
-    #[arg(long)]
-    pub alias: String,
 }
