@@ -1,4 +1,3 @@
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 pub const PROJECT_FORMAT: &str = "
@@ -14,29 +13,33 @@ pub const PROJECT_FORMAT: &str = "
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Program {
-    name: Box<str>,
-    path: Box<str>,
-    working_directory: Box<str>,
-    commands: Vec<Box<str>>,
+    name: String,
+    path: String,
+    working_directory: String,
+    commands: Vec<String>,
     auto_close: bool,
+    set_active_window: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Programs {
-    list: Vec<Program>
+    list: Vec<Program>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ProjectsTOML {
+pub struct ProjectConfig {
     programs: Programs,
 }
 
 pub struct Editor {}
 
 impl Editor {
-    pub fn input_editor(format: &str) -> Result<Box<str>> {
-        let input = edit::edit(format)?;
+    pub fn input_editor(format: &str) -> Result<String, String> {
+        let input = match edit::edit(format) {
+            Ok(i) => i,
+            Err(e) => return Err(e.to_string())
+        };
 
-        Ok(input.into_boxed_str())
+        Ok(input)
     }
 }
