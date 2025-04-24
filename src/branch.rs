@@ -1,12 +1,13 @@
 use std::collections::HashMap;
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Result, Context};
 use dialoguer::{Confirm, Input};
 
 use crate::cli::{AddCommand, SetCommand};
 use crate::db::{Project, Alias};
-use crate::config::{Editor, PROJECT_FORMAT};
+use crate::config::{Editor, Program, ProjectConfig, PROJECT_FORMAT};
 use crate::RemoveCommand;
 
 pub trait Branch {
@@ -20,21 +21,92 @@ pub struct DefaultCommand {
 
 impl Branch for DefaultCommand {
     fn execute(&self) -> Result<()> {
-        unimplemented!()
-        // // Ensure alias is provided
-        // let alias = self.alias.as_ref().context("No alias input.")?;
+        // Ensure alias is provided
+        let alias = self.alias
+            .as_ref()
+            .context("No alias input.")?;
 
-        // // Fetch the project based on the alias
-        // let project: Project = Project::get(&[alias.to_string()]).context("Failed to fetch project.")?;
+        // Fetch the project based on the alias
+        let project: Project = Project::get(&[alias.to_string()]).context("Failed to fetch project.")?;
 
-        // // Deserialize the TOML configuration
-        // let config: Config = toml::from_str(&project.toml)
-        //     .context("Failed to deserialize TOML configuration.")?;
+        // Deserialize the TOML configuration
+        let config: ProjectConfig = toml::from_str(&project.toml)
+            .context("Failed to deserialize TOML configuration.")?;
 
-        // // Use the deserialized configuration (if needed)
-        // println!("Deserialized configuration: {:?}", config);
+        project.execute(config)?;
 
-        // Ok(())
+        Ok(())
+    }
+}
+
+struct ProcessManager;
+
+impl ProcessManager {
+    fn run_program(program: &Program) -> Result<()> {
+        let mut cmd = Command::new(&program.path);
+    
+        // Set working directory
+        if let Some(dir) = &program.working_directory {
+            cmd.current_dir(dir);
+        }
+    
+        // Add arguments
+        if let Some(args) = &program.args {
+            cmd.args(args);
+        }
+    
+        // Add environment variables
+        if let Some(env_vars) = &program.env {
+            for (key, value) in env_vars {
+                cmd.env(key, value);
+            }
+        }
+
+        // Handle output mode
+        match program.output_mode.as_deref() {
+            Some("null") => {
+                cmd.stdout(Stdio::null());
+                cmd.stderr(Stdio::null());
+            }
+            Some("inherit") => {
+                cmd.stdout(Stdio::inherit());
+                cmd.stderr(Stdio::inherit());
+            }
+            Some("log") => {
+                // TODO: Implement logging to a file
+                cmd.stdout(Stdio::piped());
+                cmd.stderr(Stdio::piped());
+            }
+            _ => {}
+        }
+    
+        // Execute the command
+        let mut child = cmd
+            .stdin(Stdio::piped())
+            .spawn()
+            .context("Failed to execute program:")?;
+
+        // Write commands to stdin
+        if let Some(commands) = &program.commands {
+            if let Some(mut stdin) = child.stdin.take() {
+                for command in commands {
+                    stdin.write(format!("{}\n", command).as_bytes())?;
+                    stdin.flush()?;
+                }
+            }
+        }
+    
+        Ok(())      
+    }
+}
+
+
+impl Project {
+    fn execute(&self, config: ProjectConfig) -> Result<()> {
+        for program in &config.programs.list {
+            ProcessManager::run_program(program)?;
+        }
+        Ok(())
     }
 }
 
@@ -73,7 +145,7 @@ impl AddCommand {
                     .split(',')
                     .map(str::trim)
                     .map(String::from)
-                    .collect();
+                    .collect(); 
 
                 //Validate aliases
                 let is_valid = aliases
@@ -87,9 +159,6 @@ impl AddCommand {
 
                         let exists = 
                             Alias::check(alias.to_string()).unwrap();
-
-                        println!("unique {}", unique);
-                        println!("exists {}", exists);
 
                         unique && !exists
                         }
@@ -316,6 +385,10 @@ pub struct EditCommand {
 
 impl Branch for EditCommand {
     fn execute(&self) -> Result<()> {
-        unimplemented!();
+        let project = Project::get(&[self.alias.to_string()])?;
+
+        let new_toml = Editor::input_editor(&project.toml)?;
+
+        Project::replace_toml(project.id, new_toml) 
     }
 }

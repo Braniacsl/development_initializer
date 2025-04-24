@@ -138,6 +138,7 @@ dependencies = [
  "dialoguer",
  "directories",
  "edit",
+ "libc",
  "open",
  "rusqlite",
  "serde",

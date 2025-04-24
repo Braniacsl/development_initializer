@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use anyhow::{anyhow, Result};
 
@@ -7,29 +9,35 @@ pub const PROJECT_FORMAT: &str = "
     name = \"\"
     path = \"\"
     working_directory = \"\"
+    args = []
     commands = []
+    output_mode = []
+    env = []
     auto_close = false
     set_active_window = false
 ";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Program {
-    name: String,
-    path: String,
-    working_directory: String,
-    commands: Vec<String>,
-    auto_close: bool,
-    set_active_window: bool,
+    pub name: String,
+    pub path: String,
+    pub working_directory: Option<String>,
+    pub args: Option<Vec<String>>,
+    pub commands: Option<Vec<String>>,
+    pub output_mode: Option<String>, // e.g., "null", "inherit", "log"
+    pub env: Option<HashMap<String, String>>,
+    pub auto_close: Option<bool>,
+    pub set_active_window: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Programs {
-    list: Vec<Program>,
+    pub list: Vec<Program>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProjectConfig {
-    programs: Programs,
+    pub programs: Programs,
 }
 
 pub struct Editor {}

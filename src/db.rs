@@ -56,6 +56,8 @@ impl DB {
         // Open a connection to the database file
         let conn = Connection::open(db_path).context("Failed to open database for initialization")?;
 
+        conn.execute("PRAGMA foreign_keys = ON;", []).unwrap();
+        
         // Execute SQL to create the tables
         match conn.execute(
             "
@@ -194,9 +196,25 @@ impl Project {
         let tx = conn.transaction()?;
 
         tx
-            .execute("DELETE FROM project WHERE id = ?", [id])?;
+            .execute("DELETE FROM projects WHERE id = ?", [id])?;
 
-        Ok(tx.commit()?)
+        tx.commit()?;
+
+        Ok(())
+    }
+
+    pub fn replace_toml(id: i32, toml: String) -> Result<()> {
+        let mut conn = DB::connect()?;
+
+        let tx = conn.transaction()?;
+
+        tx.execute(
+            "UPDATE projects SET toml = ? WHERE id = ?", 
+        [toml, id.to_string()])?;
+
+        tx.commit()?;
+
+        Ok(())
     }
 
     pub fn get_id(name: String) -> Result<i32> {
@@ -206,7 +224,7 @@ impl Project {
         "SELECT p.id 
             FROM projects p
             WHERE name = ?
-            OR ? in (SELECT a.alias FROM alias aWHERE p.id = a.id)", 
+            OR ? in (SELECT a.alias FROM alias a WHERE p.id = a.id)", 
             [&name, &name], 
             |row| row.get(0)
             )?;

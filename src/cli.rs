@@ -4,17 +4,20 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
 #[command(name = "devinit", about = "A tool to help initialize your development!", version)]
 pub struct Cli {
+    /// The option to run (a project, add a project, view, etc.)
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
+
+    /// The project name to run
+    #[arg()]
+    pub project_name: Option<String>,
 }
 
 /// Enum representing the subcommands of the `devinit` application.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Initializes the project with alias <default>.
     Default {
-        /// The default alias for the project.
-        alias: Option<String>,
+        alias: String,
     },
 
     /// Add a project or alias to the program.
