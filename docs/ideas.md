@@ -1,0 +1,5 @@
+- ~~add a general setting for auto closing the original window.~~ cant do
+- add setting for uwsm app launch
+- make the active window thing work, and maybe expand to setting hierarchy of focus 
+- make command line args and stuff more ergonomic
+- implement password manager and inputter for sudo, git, etc. 

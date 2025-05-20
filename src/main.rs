@@ -3,13 +3,12 @@ mod cli;
 mod db;
 mod config;
 
-pub use branch::{
+use branch::{
     Branch,
-    DefaultCommand,
-    ListCommand,
-    EditCommand,
-    ViewCommand,
-    
+    default::DefaultCommand,
+    list::ListCommand,
+    edit::EditCommand,
+    view::ViewCommand,
 };
 pub use cli::{
     Cli,

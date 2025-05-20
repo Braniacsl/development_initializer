@@ -78,5 +78,6 @@ pub struct RemoveCommand {
 
 #[derive(Parser, Debug)]
 pub struct SetCommand {
-    pub option: Option<String>
+    pub option: Option<String>,
+    pub value: Option<String>
 }

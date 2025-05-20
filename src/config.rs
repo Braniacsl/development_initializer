@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 use anyhow::{anyhow, Result};
+
+use crate::db::settings::Settings;
 
 pub const PROJECT_FORMAT: &str = "
 [programs]
@@ -28,6 +29,7 @@ pub struct Program {
     pub env: Option<HashMap<String, String>>,
     pub auto_close: Option<bool>,
     pub set_active_window: Option<bool>,
+    pub settings: Option<Settings>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
